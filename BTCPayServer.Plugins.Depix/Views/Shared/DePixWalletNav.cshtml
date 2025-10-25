@@ -18,7 +18,7 @@
             walletId = queryParsedWalletId;
     }
 
-    if (walletId is null) // fallback for /stores/{storeId}/onchain/DePix/settings:
+    if (walletId is null) // fallback for /stores/{storeId}/depix/settings:
     {
         var storeId    = ViewContext.RouteData.Values["storeId"] as string;
         var cryptoCode = ViewContext.RouteData.Values["cryptoCode"] as string;

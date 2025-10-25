@@ -14,9 +14,11 @@
         ? new PixConfigStatus(DePixActive: false, PixEnabled: false, ApiKeyConfigured: false)
         : await DepixService.GetPixConfigStatus(storeId);
 
-    var depixWalletUrl = $"/stores/{storeId}/onchain/DePix";
+    var depixWalletUrl = $"/stores/{storeId}/depix";
 
-    ViewData.SetActivePage(DePixPlugin.PluginNavKey, "Pix – Transactions", "DepixTransactions");
+    var depixPluginObj = Context.RequestServices.GetService(typeof(DePixPlugin));
+    var pluginNavKey = depixPluginObj is not null ? DePixPlugin.PluginNavKey : "depix";
+    ViewData.SetActivePage(pluginNavKey, "Pix – Transactions", "depixTransactions");
 
     var statusFilter = ViewData["StatusFilter"] as string ?? "";
     var query        = ViewData["Query"] as string ?? "";
