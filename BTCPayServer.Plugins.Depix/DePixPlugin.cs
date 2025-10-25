@@ -4,6 +4,7 @@ using BTCPayServer.Hosting;
 using BTCPayServer.Payments;
 using BTCPayServer.Plugins.Depix.PaymentHandlers;
 using BTCPayServer.Plugins.Depix.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BTCPayServer.Plugins.Depix;
@@ -37,6 +38,8 @@ public class DePixPlugin : BaseBTCPayServerPlugin
         plugins.AddUIExtension("store-wallets-nav", "PixStoreNav");
         plugins.AddUIExtension("checkout-payment", "PixCheckout");
         plugins.AddUIExtension("wallet-nav", "DePixWalletNav");
+
+        services.AddSingleton<IStartupFilter, BTCPayServer.Plugins.Depix.Startup.DepixRedirectStartupFilter>();
 
         using var sp = plugins.BuildServiceProvider();
         var depixService = sp.GetRequiredService<DepixService>();
