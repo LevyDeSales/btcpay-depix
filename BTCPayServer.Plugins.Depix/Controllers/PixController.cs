@@ -70,6 +70,8 @@ public class PixController(
             ApiKey = maskedApiKey,
             UseWhitelist = cfg is { UseWhitelist: true },
             PassFeeToCustomer = cfg is { PassFeeToCustomer: true },
+            DepixSplitAddress = cfg?.DepixSplitAddress,
+            SplitFee = cfg?.SplitFee,
             WebhookUrl = webhookUrl,
             WebhookSecretDisplay = secretDisplay,
             OneShotSecretToDisplay = oneShotSecret,
@@ -130,6 +132,8 @@ public class PixController(
         cfg.IsEnabled = willEnable;
         cfg.UseWhitelist = viewModel.UseWhitelist;
         cfg.PassFeeToCustomer = viewModel.PassFeeToCustomer;
+        cfg.DepixSplitAddress = viewModel.DepixSplitAddress;
+        cfg.SplitFee = viewModel.SplitFee;
         store.SetPaymentMethodConfig(handlers[pmid], cfg);
         blob.SetExcluded(pmid, !willEnable);
         store.SetStoreBlob(blob);

@@ -56,7 +56,12 @@ public class PixPaymentMethodHandler(
         using var client = depixService.CreateDepixClient(apiKey);
 
         var address = await depixService.GenerateFreshDePixAddress(store.Id);
-        var deposit = await depixService.RequestDepositAsync(client, amountInCents, address, effectiveConfig.UseWhitelist, CancellationToken.None);
+        var deposit = await depixService.RequestDepositAsync(
+            client, 
+            amountInCents, 
+            address, 
+            pixCfg,
+            CancellationToken.None);
 
         depixService.ApplyPromptDetails(context, deposit, address);
     }
