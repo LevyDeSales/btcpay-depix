@@ -245,12 +245,17 @@ public class DepixService(
     {
         context.Prompt.Destination = depositResponse.QrImageUrl;
 
-        context.Prompt.Details ??= new JObject();
-        var details = (JObject)context.Prompt.Details;
+        var details = context.Prompt.Details is null
+            ? new DePixPaymentMethodDetails()
+            : context.Handler.ParsePaymentPromptDetails(context.Prompt.Details) as DePixPaymentMethodDetails ??
+              new DePixPaymentMethodDetails();
 
-        details["qrId"]         = depositResponse.QrId;
-        details["copyPaste"]    = depositResponse.QrCopyPaste;
-        details["depixAddress"] = depixAddress;
+        details.QrId = depositResponse.QrId;
+        details.QrImageUrl = depositResponse.QrImageUrl;
+        details.CopyPaste = depositResponse.QrCopyPaste;
+        details.DepixAddress = depixAddress;
+
+        context.Prompt.Details = JToken.FromObject(details, context.Handler.Serializer);
     }
     
     public async Task<List<PixTxResponse>> LoadPixTransactionsAsync(PixTxQueryRequest query, CancellationToken ct)
@@ -373,31 +378,115 @@ public class DepixService(
             return;
         }
 
-        var details = pixPrompt.Details as JObject ?? new JObject();
-        if (body.BankTxId is not null)       details["bankTxId"]       = body.BankTxId;
-        if (body.BlockchainTxId is not null) details["blockchainTxID"] = body.BlockchainTxId;
-        if (body.Status is not null)         details["status"]         = body.Status;
-        if (body.ValueInCents is not null)   details["valueInCents"]   = body.ValueInCents;
-        if (body.Expiration is not null)     details["expiration"]     = body.Expiration;
-        if (body.PixKey is not null)         details["pixKey"]         = body.PixKey;
+        using var scope = scopeFactory.CreateScope();
+        var handlers = scope.ServiceProvider.GetRequiredService<PaymentMethodHandlerDictionary>();
+        if (!handlers.TryGetValue(pmid, out var handler))
+        {
+            logger.LogWarning("Depix webhook: PIX handler missing for invoice {InvoiceId}", invoiceId);
+            return;
+        }
+
+        var details = handler.ParsePaymentPromptDetails(pixPrompt.Details) as DePixPaymentMethodDetails ?? new DePixPaymentMethodDetails();
+        if (body.Status is not null)       details.Status = body.Status;
+        if (body.ValueInCents is not null) details.ValueInCents = body.ValueInCents;
+        if (body.Expiration is not null)   details.Expiration = body.Expiration;
+        if (body.PixKey is not null)       details.PixKey = body.PixKey;
 
         if (body.PayerName is not null || body.PayerEuid is not null ||
             body.PayerTaxNumber is not null || body.CustomerMessage is not null)
         {
-            var payer = (JObject?)details["payer"] ?? new JObject();
-            if (body.PayerName is not null)       payer["name"]      = body.PayerName;
-            if (body.PayerEuid is not null)       payer["euid"]      = body.PayerEuid;
-            if (body.PayerTaxNumber is not null)  payer["taxNumber"] = body.PayerTaxNumber;
-            if (body.CustomerMessage is not null) payer["message"]   = body.CustomerMessage;
-            details["payer"] = payer;
+            details.Payer ??= new DePixPaymentMethodDetails.PayerDetails();
+            if (body.PayerName is not null)       details.Payer.Name = body.PayerName;
+            if (body.PayerEuid is not null)       details.Payer.Euid = body.PayerEuid;
+            if (body.PayerTaxNumber is not null)  details.Payer.TaxNumber = body.PayerTaxNumber;
+            if (body.CustomerMessage is not null) details.Payer.Message = body.CustomerMessage;
         }
 
-        await invoiceRepository.UpdatePaymentDetails(invoiceId, pmid, details);
+        await invoiceRepository.UpdatePaymentDetails(invoiceId, handler, details);
 
         if (DepixStatusExtensions.TryParse(body.Status, out var depixStatus))
-            await ApplyStatusAndNotifyAsync(invoiceId, depixStatus);
+        {
+            if (depixStatus != DepixStatus.DepixSent)
+            {
+                await ApplyStatusAndNotifyAsync(invoiceId, depixStatus);
+                return;
+            }
+            
+            await TryRecordPaymentAsync(entity, pixPrompt, body, depixStatus);
+        }
     }
-    
+
+    private async Task TryRecordPaymentAsync(InvoiceEntity entity, PaymentPrompt pixPrompt, DepositWebhookBody body,
+        DepixStatus depixStatus)
+    {
+        if (depixStatus != DepixStatus.DepixSent)
+            return;
+
+        var paymentIdBase = body.BankTxId ?? body.BlockchainTxId ?? body.QrId;
+        if (string.IsNullOrWhiteSpace(paymentIdBase))
+        {
+            logger.LogWarning("Depix webhook: depix_sent without payment id for invoice {InvoiceId}", entity.Id);
+            return;
+        }
+
+        var amount = body.ValueInCents is { } cents
+            ? cents / 100m
+            : pixPrompt.Calculate().TotalDue;
+        if (amount <= 0m)
+        {
+            logger.LogWarning("Depix webhook: depix_sent with invalid amount {Amount} for invoice {InvoiceId}", amount, entity.Id);
+            return;
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var paymentService = scope.ServiceProvider.GetRequiredService<PaymentService>();
+        var handlers = scope.ServiceProvider.GetRequiredService<PaymentMethodHandlerDictionary>();
+        if (!handlers.TryGetValue(DePixPlugin.PixPmid, out var handler))
+        {
+            logger.LogWarning("Depix webhook: depix_sent but PIX handler missing for invoice {InvoiceId}", entity.Id);
+            return;
+        }
+
+        var paymentId = $"{entity.Id}:{paymentIdBase}";
+        var paymentData = new PaymentData
+        {
+            Id = paymentId,
+            Created = DateTimeOffset.UtcNow,
+            Status = PaymentStatus.Settled,
+            Currency = pixPrompt.Currency,
+            InvoiceDataId = entity.Id,
+            Amount = amount
+        }.Set(entity, handler, BuildPaymentData(body));
+
+        var payment = await paymentService.AddPayment(paymentData, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { paymentId });
+        if (payment is null)
+        {
+            events.Publish(new InvoiceNeedUpdateEvent(entity.Id));
+            return;
+        }
+
+        var invoice = await invoiceRepository.GetInvoice(entity.Id);
+        if (invoice is not null)
+            events.Publish(new InvoiceEvent(invoice, InvoiceEvent.ReceivedPayment) { Payment = payment });
+    }
+
+    private static DePixPaymentData BuildPaymentData(DepositWebhookBody body)
+    {
+        return new DePixPaymentData
+        {
+            QrId = body.QrId,
+            BankTxId = body.BankTxId,
+            BlockchainTxId = body.BlockchainTxId,
+            Status = body.Status,
+            ValueInCents = body.ValueInCents,
+            PixKey = body.PixKey,
+            PayerName = body.PayerName,
+            PayerEuid = body.PayerEuid,
+            PayerTaxNumber = body.PayerTaxNumber,
+            CustomerMessage = body.CustomerMessage
+        };
+    }
+
     private async Task ApplyStatusAndNotifyAsync(string invoiceId, DepixStatus depix)
     {
         var entity = await invoiceRepository.GetInvoice(invoiceId);
