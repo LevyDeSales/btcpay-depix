@@ -425,8 +425,7 @@ public class DepixService(
         if (depixStatus != DepixStatus.DepixSent)
             return;
 
-        var paymentIdBase = body.BankTxId ?? body.BlockchainTxId ?? body.QrId;
-        if (string.IsNullOrWhiteSpace(paymentIdBase))
+        if (string.IsNullOrWhiteSpace(body.QrId))
         {
             logger.LogWarning("Depix webhook: depix_sent without payment id for invoice {InvoiceId}", entity.Id);
             return;
@@ -450,7 +449,7 @@ public class DepixService(
             return;
         }
 
-        var paymentId = $"{entity.Id}:{paymentIdBase}";
+        var paymentId = $"{entity.Id}:{body.QrId}";
         var paymentData = new PaymentData
         {
             Id = paymentId,
