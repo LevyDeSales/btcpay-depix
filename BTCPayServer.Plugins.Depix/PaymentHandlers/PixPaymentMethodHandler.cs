@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,7 +56,6 @@ public class PixPaymentMethodHandler(
         using var client = depixService.CreateDepixClient(apiKey);
 
         var address = await depixService.GenerateFreshDePixAddress(store.Id);
-
         var deposit = await depixService.RequestDepositAsync(client, amountInCents, address, effectiveConfig.UseWhitelist, CancellationToken.None);
 
         depixService.ApplyPromptDetails(context, deposit, address);
@@ -81,6 +81,37 @@ public class PixPaymentMethodHandler(
     }
 }
 
-public class DePixPaymentData;
+public class DePixPaymentData
+{
+    public string? QrId { get; set; }
+    public string? BankTxId { get; set; }
+    public string? BlockchainTxId { get; set; }
+    public string? Status { get; set; }
+    public int? ValueInCents { get; set; }
+    public string? PixKey { get; set; }
+    public string? PayerName { get; set; }
+    public string? PayerEuid { get; set; }
+    public string? PayerTaxNumber { get; set; }
+    public string? CustomerMessage { get; set; }
+}
 
-public class DePixPaymentMethodDetails;
+public class DePixPaymentMethodDetails
+{
+    public string? QrId { get; set; }
+    public string? QrImageUrl { get; set; }
+    public string? CopyPaste { get; set; }
+    public string? DepixAddress { get; set; }
+    public string? Status { get; set; }
+    public int? ValueInCents { get; set; }
+    public string? Expiration { get; set; }
+    public string? PixKey { get; set; }
+    public PayerDetails? Payer { get; set; }
+
+    public class PayerDetails
+    {
+        public string? Name { get; set; }
+        public string? Euid { get; set; }
+        public string? TaxNumber { get; set; }
+        public string? Message { get; set; }
+    }
+}
