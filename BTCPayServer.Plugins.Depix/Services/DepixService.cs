@@ -386,7 +386,10 @@ public class DepixService(
             return;
         }
 
-        var details = handler.ParsePaymentPromptDetails(pixPrompt.Details) as DePixPaymentMethodDetails ?? new DePixPaymentMethodDetails();
+        var details = pixPrompt.Details is null
+            ? new DePixPaymentMethodDetails()
+            : handler.ParsePaymentPromptDetails(pixPrompt.Details) as DePixPaymentMethodDetails ??
+              new DePixPaymentMethodDetails();
         if (body.Status is not null)       details.Status = body.Status;
         if (body.ValueInCents is not null) details.ValueInCents = body.ValueInCents;
         if (body.Expiration is not null)   details.Expiration = body.Expiration;
