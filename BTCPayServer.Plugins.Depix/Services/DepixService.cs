@@ -283,11 +283,13 @@ public class DepixService(
         if (pixCfg.UseWhitelist)
             payload["whitelist"] = true;
 
-        if (!string.IsNullOrEmpty(pixCfg.DepixSplitAddress))
-            payload["depixSplitAddress"] = pixCfg.DepixSplitAddress;
+        var splitAddressTrimmed = pixCfg.DepixSplitAddress?.Trim();
+        if (!string.IsNullOrWhiteSpace(splitAddressTrimmed))
+            payload["depixSplitAddress"] = splitAddressTrimmed;
 
-        if (!string.IsNullOrEmpty(pixCfg.SplitFee))
-            payload["splitFee"] = pixCfg.SplitFee;
+        var splitFeeTrimmed = pixCfg.SplitFee?.Trim();
+        if (!string.IsNullOrWhiteSpace(splitFeeTrimmed))
+            payload["splitFee"] = splitFeeTrimmed;
 
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var resp = await client.PostAsync("deposit", content, ct);
