@@ -25,6 +25,7 @@ using BTCPayServer.Services.Invoices;
 using BTCPayServer.Services.Rates;
 using BTCPayServer.Services.Stores;
 using BTCPayServer.Services.Wallets;
+using BTCPayServer;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -269,10 +270,11 @@ public class DepixService(
     /// <param name="amountInCents">Amount in cents</param>
     /// <param name="depixAddress">The DePix address to receive funds</param>
     /// <param name="pixCfg">Pix configuration containing optional split parameters</param>
+    /// <param name="useWhitelist">Whether whitelist is enabled from effective config</param>
     /// <param name="ct">Cancellation token</param>
     /// <returns>The deposit response containing QR code info</returns>
     /// <exception cref="PaymentMethodUnavailableException">Thrown if request fails</exception>
-    public async Task<DepixDepositResponse> RequestDepositAsync(HttpClient client, int amountInCents, string depixAddress, PixPaymentMethodConfig pixCfg, CancellationToken ct)
+    public async Task<DepixDepositResponse> RequestDepositAsync(HttpClient client, int amountInCents, string depixAddress, PixPaymentMethodConfig pixCfg, bool useWhitelist, CancellationToken ct)
     {
         var payload = new Dictionary<string, object>
         {
@@ -280,7 +282,7 @@ public class DepixService(
             ["depixAddress"]  = depixAddress
         };
         
-        if (pixCfg.UseWhitelist)
+        if (useWhitelist)
             payload["whitelist"] = true;
 
         var splitAddressTrimmed = pixCfg.DepixSplitAddress?.Trim();
@@ -307,6 +309,10 @@ public class DepixService(
 
         if (string.IsNullOrEmpty(qrId))
             throw new PaymentMethodUnavailableException("DePix response did not include id");
+        if (string.IsNullOrEmpty(qrImageUrl))
+            throw new PaymentMethodUnavailableException("DePix response did not include qrImageUrl");
+        if (string.IsNullOrEmpty(copyPaste))
+            throw new PaymentMethodUnavailableException("DePix response did not include qrCopyPaste");
 
         return new DepixDepositResponse(qrId, qrImageUrl!, copyPaste!);
     }
@@ -695,13 +701,10 @@ public class DepixService(
     /// Initializes the DePix plugin
     /// </summary>
     /// <param name="services">The service collection</param>
-    public void InitDePix(IServiceCollection services)
+    /// <param name="nbxProvider">The NBXplorer network provider</param>
+    /// <param name="selectedChains">The selected chains registry</param>
+    public void InitDePix(IServiceCollection services, NBXplorerNetworkProvider nbxProvider, SelectedChains selectedChains)
     {
-        using var sp = services.BuildServiceProvider();
-
-        var nbxProvider    = sp.GetRequiredService<NBXplorerNetworkProvider>();
-        var selectedChains = sp.GetRequiredService<SelectedChains>();
-
         var lbtc = nbxProvider.GetFromCryptoCode("LBTC");
         if (lbtc is null)
         {

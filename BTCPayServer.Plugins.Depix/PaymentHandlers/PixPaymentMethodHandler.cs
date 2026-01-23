@@ -81,6 +81,7 @@ public class PixPaymentMethodHandler(
             amountInCents, 
             address, 
             pixCfg,
+            effectiveConfig.UseWhitelist,
             CancellationToken.None);
 
         depixService.ApplyPromptDetails(context, deposit, address);
