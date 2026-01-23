@@ -210,7 +210,7 @@ public class DepixService(
         }
     }
     
-    public async Task<DepixDepositResponse> RequestDepositAsync(HttpClient client, int amountInCents, string depixAddress, bool whitelist, string? depixSplitAddress, string? splitFee, CancellationToken ct)
+    public async Task<DepixDepositResponse> RequestDepositAsync(HttpClient client, int amountInCents, string depixAddress, PixPaymentMethodConfig pixCfg, CancellationToken ct)
     {
         var payload = new Dictionary<string, object>
         {
@@ -218,14 +218,14 @@ public class DepixService(
             ["depixAddress"]  = depixAddress
         };
         
-        if (whitelist)
+        if (pixCfg.UseWhitelist)
             payload["whitelist"] = true;
 
-        if (!string.IsNullOrEmpty(depixSplitAddress))
-            payload["depixSplitAddress"] = depixSplitAddress;
+        if (!string.IsNullOrEmpty(pixCfg.DepixSplitAddress))
+            payload["depixSplitAddress"] = pixCfg.DepixSplitAddress;
 
-        if (!string.IsNullOrEmpty(splitFee))
-            payload["splitFee"] = splitFee;
+        if (!string.IsNullOrEmpty(pixCfg.SplitFee))
+            payload["splitFee"] = pixCfg.SplitFee;
 
         var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
         var resp = await client.PostAsync("deposit", content, ct);

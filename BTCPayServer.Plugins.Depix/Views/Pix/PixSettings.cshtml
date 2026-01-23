@@ -74,10 +74,10 @@
 
                 <div class="form-group my-4">
                     <label asp-for="SplitFee">Split Fee (Optional)</label>
-                    <input asp-for="SplitFee" type="text" class="form-control" />
+                    <input asp-for="SplitFee" type="number" class="form-control" step="0.01" min="0" max="100" />
                     <span asp-validation-for="SplitFee" class="text-danger"></span>
                     <small class="form-text text-muted">
-                        Optional Split Fee (percentage, e.g. 2.99%).
+                        Enter numeric percentage ONLY, without the '%' sign, e.g. 2.99.
                     </small>
                 </div>
 
