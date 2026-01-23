@@ -57,7 +57,19 @@ public class PixStoreViewModel
     /// Fee configuration for split payments
     /// </summary>
     public string? SplitFee { get; set; }
+
+    /// <summary>
+    /// Whether the store configuration is valid
+    /// </summary>
     public bool IsStoreCfgValid { get; set; }
+
+    /// <summary>
+    /// Whether the server configuration is valid
+    /// </summary>
     public bool IsServerCfgValid { get; set; }
+
+    /// <summary>
+    /// Whether the effective configuration uses the server configuration
+    /// </summary>
     public bool EffectiveUsesServerConfig { get; set; }
 }
