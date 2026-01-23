@@ -27,6 +27,11 @@ public class PixController(
 {
     private StoreData StoreData => HttpContext.GetStoreData();
     
+    /// <summary>
+    /// Displays the Pix settings for a store
+    /// </summary>
+    /// <param name="walletId">Optional wallet ID context</param>
+    /// <returns>The settings view</returns>
     [HttpGet("settings")]
     public async Task<IActionResult> PixSettings([FromQuery] string? walletId)
     {
@@ -84,6 +89,12 @@ public class PixController(
         return View(model);
     }
 
+    /// <summary>
+    /// Updates the Pix settings for a store
+    /// </summary>
+    /// <param name="viewModel">The view model with updated settings</param>
+    /// <param name="walletId">Optional wallet ID context</param>
+    /// <returns>Redirects to settings view</returns>
     [HttpPost("settings")]
     public async Task<IActionResult> PixSettings(PixStoreViewModel viewModel, [FromQuery] string? walletId)
     {
@@ -147,6 +158,13 @@ public class PixController(
         return RedirectToAction(nameof(PixSettings), new { storeId = StoreData.Id, walletId });
     }
     
+    /// <summary>
+    /// Displays Pix transactions for a store
+    /// </summary>
+    /// <param name="storeId">The store ID</param>
+    /// <param name="query">Filter parameters</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>The transactions view</returns>
     [HttpGet("transactions")]
     public async Task<IActionResult> PixTransactions([FromRoute] string storeId, [FromQuery] PixTxQueryRequest query, CancellationToken ct)
     {

@@ -210,6 +210,16 @@ public class DepixService(
         }
     }
     
+    /// <summary>
+    /// Requests a new Pix deposit from the DePix API
+    /// </summary>
+    /// <param name="client">Authenticated HttpClient</param>
+    /// <param name="amountInCents">Amount in cents</param>
+    /// <param name="depixAddress">The DePix address to receive funds</param>
+    /// <param name="pixCfg">Pix configuration containing optional split parameters</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>The deposit response containing QR code info</returns>
+    /// <exception cref="PaymentMethodUnavailableException">Thrown if request fails</exception>
     public async Task<DepixDepositResponse> RequestDepositAsync(HttpClient client, int amountInCents, string depixAddress, PixPaymentMethodConfig pixCfg, CancellationToken ct)
     {
         var payload = new Dictionary<string, object>
