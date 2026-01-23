@@ -35,6 +35,9 @@ using Newtonsoft.Json.Linq;
 
 namespace BTCPayServer.Plugins.Depix.Services;
 
+/// <summary>
+/// Service for managing DePix integration
+/// </summary>
 public class DepixService(
     IServiceProvider serviceProvider,
     IServiceScopeFactory scopeFactory,
@@ -48,12 +51,28 @@ public class DepixService(
 )
 {
     
+    /// <summary>
+    /// Source of the DePix configuration
+    /// </summary>
     public enum DepixConfigSource
     {
+        /// <summary>
+        /// Not configured
+        /// </summary>
         None,
+        /// <summary>
+        /// Configured at store level
+        /// </summary>
         Store,
+        /// <summary>
+        /// Configured at server level
+        /// </summary>
         Server
     }
+
+    /// <summary>
+    /// Effective DePix configuration
+    /// </summary>
     public record EffectivePixConfig(
         DepixConfigSource Source,
         string? EncryptedApiKey,
@@ -61,6 +80,11 @@ public class DepixService(
         bool UseWhitelist,
         bool PassFeeToCustomer);
     
+    /// <summary>
+    /// Checks if DePix is enabled for a store
+    /// </summary>
+    /// <param name="storeId">The store ID</param>
+    /// <returns>True if enabled, false otherwise</returns>
     public async Task<bool> IsDePixEnabled(string storeId)
     {
         try
@@ -88,6 +112,11 @@ public class DepixService(
         }
     }
     
+    /// <summary>
+    /// Gets the Pix configuration status for a store
+    /// </summary>
+    /// <param name="storeId">The store ID</param>
+    /// <returns>The Pix configuration status</returns>
     public async Task<PixConfigStatus> GetPixConfigStatus(string storeId)
     {
         var store = await storeRepository.FindStore(storeId);
@@ -108,6 +137,11 @@ public class DepixService(
         return new PixConfigStatus(dePixActive, pixEnabled, apiKeyConfigured);
     }
     
+    /// <summary>
+    /// Checks if Pix is enabled for a store
+    /// </summary>
+    /// <param name="storeId">The store ID</param>
+    /// <returns>True if enabled, false otherwise</returns>
     public async Task<bool> IsPixEnabled(string storeId)
     {
         var store = await storeRepository.FindStore(storeId);
@@ -122,6 +156,13 @@ public class DepixService(
         return cfg is not null && cfg.IsEnabled;
     }
     
+    /// <summary>
+    /// Generates a fresh DePix address for a store
+    /// </summary>
+    /// <param name="storeId">The store ID</param>
+    /// <returns>The generated address</returns>
+    /// <exception cref="PixPluginException">Thrown if store or network not configured</exception>
+    /// <exception cref="PixPaymentException">Thrown if wallet not configured</exception>
     public async Task<string> GenerateFreshDePixAddress(string storeId)
     {
         var walletProvider = serviceProvider.GetRequiredService<BTCPayWalletProvider>();
@@ -155,6 +196,11 @@ public class DepixService(
         return address;
     }
     
+    /// <summary>
+    /// Creates a DePix API client
+    /// </summary>
+    /// <param name="apiKey">The API key</param>
+    /// <returns>The HttpClient</returns>
     public HttpClient CreateDepixClient(string apiKey)
     {
         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
@@ -164,6 +210,12 @@ public class DepixService(
         return client;
     }
     
+    /// <summary>
+    /// Validates a DePix API key
+    /// </summary>
+    /// <param name="apiKey">The API key to validate</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>The validation response</returns>
     public async Task<ApiKeyValidationResponse> ValidateApiKeyAsync(string apiKey, CancellationToken ct = default)
     {
         try
@@ -257,6 +309,12 @@ public class DepixService(
         return new DepixDepositResponse(qrId, qrImageUrl!, copyPaste!);
     }
     
+    /// <summary>
+    /// Applies the deposit details to the payment prompt
+    /// </summary>
+    /// <param name="context">The payment method context</param>
+    /// <param name="depositResponse">The deposit response from DePix</param>
+    /// <param name="depixAddress">The DePix address</param>
     public void ApplyPromptDetails(PaymentMethodContext context, DepixDepositResponse depositResponse, string depixAddress)
     {
         context.Prompt.Destination = depositResponse.QrImageUrl;
@@ -274,6 +332,12 @@ public class DepixService(
         context.Prompt.Details = JToken.FromObject(details, context.Handler.Serializer);
     }
     
+    /// <summary>
+    /// Loads Pix transactions for a store
+    /// </summary>
+    /// <param name="query">The query parameters</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>A list of Pix transactions</returns>
     public async Task<List<PixTxResponse>> LoadPixTransactionsAsync(PixTxQueryRequest query, CancellationToken ct)
     {
         await using var db = invoiceRepository.DbContextFactory.CreateContext();
@@ -339,6 +403,12 @@ public class DepixService(
         return transactions;
     }
     
+    /// <summary>
+    /// Processes a webhook for a specific store
+    /// </summary>
+    /// <param name="storeId">The store ID</param>
+    /// <param name="body">The webhook body</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     public async Task ProcessWebhookAsync(string storeId, DepositWebhookBody body, CancellationToken cancellationToken)
     {
         try
@@ -358,6 +428,11 @@ public class DepixService(
         }
     }
     
+    /// <summary>
+    /// Processes a webhook (server-level or global)
+    /// </summary>
+    /// <param name="body">The webhook body</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     public async Task ProcessWebhookAsync(DepositWebhookBody body, CancellationToken cancellationToken)
     {
         try
@@ -520,6 +595,12 @@ public class DepixService(
         events.Publish(new InvoiceDataChangedEvent(entity));
     }
     
+    /// <summary>
+    /// Gets the Pix configuration for a store
+    /// </summary>
+    /// <param name="store">The store data</param>
+    /// <param name="handlers">The payment method handlers</param>
+    /// <returns>The Pix configuration or null</returns>
     public PixPaymentMethodConfig? GetPixConfig(StoreData store, PaymentMethodHandlerDictionary handlers)
     {
         var pmid = DePixPlugin.PixPmid;
@@ -534,14 +615,29 @@ public class DepixService(
         return handler.ParsePaymentMethodConfig(raw) as PixPaymentMethodConfig;
     }
     
+    /// <summary>
+    /// Gets the server-level DePix configuration
+    /// </summary>
+    /// <returns>The server configuration</returns>
     public async Task<PixServerConfig> GetServerConfigAsync()
     {
         return await settingsRepository.GetSettingAsync<PixServerConfig>() ?? new PixServerConfig();
     }
     
+    /// <summary>
+    /// Validates the configuration
+    /// </summary>
+    /// <param name="encryptedApiKey">The encrypted API key</param>
+    /// <param name="webhookSecretHashHex">The webhook secret hash</param>
+    /// <returns>True if valid, false otherwise</returns>
     public static bool IsConfigValid(string? encryptedApiKey, string? webhookSecretHashHex)
         => !string.IsNullOrEmpty(encryptedApiKey) && !string.IsNullOrEmpty(webhookSecretHashHex);
 
+    /// <summary>
+    /// Gets the effective configuration (merging store and server configs)
+    /// </summary>
+    /// <param name="storeCfg">The store configuration</param>
+    /// <returns>The effective configuration</returns>
     public async Task<EffectivePixConfig> GetEffectiveConfigAsync(PixPaymentMethodConfig? storeCfg)
     {
         if (storeCfg is not null && IsConfigValid(storeCfg.EncryptedApiKey, storeCfg.WebhookSecretHashHex))
@@ -593,6 +689,10 @@ public class DepixService(
             new CommandDefinition(sql, new { qrId, storeId }, cancellationToken: ct));
     }
     
+    /// <summary>
+    /// Initializes the DePix plugin
+    /// </summary>
+    /// <param name="services">The service collection</param>
     public void InitDePix(IServiceCollection services)
     {
         using var sp = services.BuildServiceProvider();

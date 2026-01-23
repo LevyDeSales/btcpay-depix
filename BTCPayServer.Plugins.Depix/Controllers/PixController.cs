@@ -18,6 +18,9 @@ namespace BTCPayServer.Plugins.Depix.Controllers;
 
 [Route("stores/{storeId}/pix")]
 [Authorize(Policy = Policies.CanModifyStoreSettings, AuthenticationSchemes = AuthenticationSchemes.Cookie)]
+/// <summary>
+/// Controller for Pix settings and transactions
+/// </summary>
 public class PixController(
     StoreRepository storeRepository,
     PaymentMethodHandlerDictionary handlers,
