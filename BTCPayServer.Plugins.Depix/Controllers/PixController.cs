@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using BTCPayServer.Abstractions.Constants;
@@ -120,6 +121,32 @@ public class PixController(
             }
             cfg.EncryptedApiKey = protector.Protect(candidate);
         }
+
+        var splitAddress = viewModel.DepixSplitAddress?.Trim();
+        var splitFeeRaw = viewModel.SplitFee?.Trim();
+        var hasSplitAddress = !string.IsNullOrWhiteSpace(splitAddress);
+        var hasSplitFee = !string.IsNullOrWhiteSpace(splitFeeRaw);
+        if (hasSplitAddress ^ hasSplitFee)
+        {
+            TempData[WellKnownTempData.ErrorMessage] = "Split Fee and DePix Split Address must be provided together.";
+            return RedirectToAction(nameof(PixSettings), new { walletId });
+        }
+
+        if (hasSplitFee)
+        {
+            if (!TryNormalizeSplitFee(splitFeeRaw!, out var normalizedSplitFee))
+            {
+                TempData[WellKnownTempData.ErrorMessage] = "Split Fee must be a percentage between 0 and 100.";
+                return RedirectToAction(nameof(PixSettings), new { walletId });
+            }
+            viewModel.SplitFee = normalizedSplitFee;
+            viewModel.DepixSplitAddress = splitAddress;
+        }
+        else
+        {
+            viewModel.SplitFee = null;
+            viewModel.DepixSplitAddress = null;
+        }
         
         string? oneShotSecretToDisplay = null;
         var storeHasApiKey = !string.IsNullOrEmpty(cfg.EncryptedApiKey);
@@ -159,6 +186,20 @@ public class PixController(
 
         TempData[WellKnownTempData.SuccessMessage] = "Pix configuration applied";
         return RedirectToAction(nameof(PixSettings), new { storeId = StoreData.Id, walletId });
+    }
+
+    private static bool TryNormalizeSplitFee(string raw, out string normalized)
+    {
+        normalized = "";
+        var trimmed = raw.Trim();
+        if (trimmed.EndsWith("%", StringComparison.Ordinal))
+            trimmed = trimmed[..^1].Trim();
+        if (!decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
+            return false;
+        if (value < 0m || value > 100m)
+            return false;
+        normalized = value.ToString("0.##", CultureInfo.InvariantCulture) + "%";
+        return true;
     }
     
     /// <summary>

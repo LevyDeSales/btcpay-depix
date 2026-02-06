@@ -68,7 +68,7 @@
                     <input asp-for="DepixSplitAddress" type="text" class="form-control" />
                     <span asp-validation-for="DepixSplitAddress" class="text-danger"></span>
                     <small class="form-text text-muted">
-                        Optional DePix Split Address.
+                        Wallet that receives the split portion defined by Split Fee.
                     </small>
                 </div>
 
@@ -77,7 +77,7 @@
                     <input asp-for="SplitFee" type="number" class="form-control" step="0.01" min="0" max="100" />
                     <span asp-validation-for="SplitFee" class="text-danger"></span>
                     <small class="form-text text-muted">
-                        Enter numeric percentage ONLY, without the '%' sign, e.g. 2.99.
+                        Percentage of the Pix amount sent to the Split Address.
                     </small>
                 </div>
 
