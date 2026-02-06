@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -136,7 +137,7 @@ public class PixController(
         {
             if (!TryNormalizeSplitFee(splitFeeRaw!, out var normalizedSplitFee))
             {
-                TempData[WellKnownTempData.ErrorMessage] = "Split Fee must be a percentage between 0 and 100.";
+                TempData[WellKnownTempData.ErrorMessage] = "Split Fee must be greater than 0 and less than 100, with up to 2 decimal places.";
                 return RedirectToAction(nameof(PixSettings), new { walletId });
             }
             viewModel.SplitFee = normalizedSplitFee;
@@ -196,7 +197,10 @@ public class PixController(
             trimmed = trimmed[..^1].Trim();
         if (!decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
             return false;
-        if (value < 0m || value > 100m)
+        if (value <= 0m || value >= 100m)
+            return false;
+        var scale = (decimal.GetBits(value)[3] >> 16) & 0xFF;
+        if (scale > 2)
             return false;
         normalized = value.ToString("0.##", CultureInfo.InvariantCulture) + "%";
         return true;
